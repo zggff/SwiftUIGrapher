@@ -1,0 +1,27 @@
+name: GraphingCalculator
+options:
+  bundleIdPrefix: com.zggff
+
+packages:
+  Render3DViews:
+    path: ./Renderer3D
+  MathParser:
+    path: ./MathParser
+
+
+
+targets:
+  GraphingCalculator:
+    type: application
+    platform: [macOS, iOS]
+    sources: [Sources]
+    dependencies:
+      - package: Render3DViews
+      - package: MathParser
+      
+    settings:
+      base:
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        SWIFT_VERSION: 6.3
+        GENERATE_INFOPLIST_FILE: YES
