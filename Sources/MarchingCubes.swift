@@ -3,12 +3,13 @@ import Render3D
 import Render3DShaders
 import simd
 
-public class MarchingCubes: Renderable {
-	public static var cachable: Bool { false }
+public class MarchingCubes: InstancedRenderable {
+	public var cachable: Bool { false }
 	public var center: Vec3 = [0, 0, 0]
 	public let model: Matrix
 	public let color: Vec4
 	public typealias Func = (Vec3) throws -> Float
+	public var meshId: MeshID = MeshID(rawValue: "MarchingCube.\(UUID())")
 
 	var f: Func
 
@@ -30,7 +31,7 @@ public class MarchingCubes: Renderable {
 		self.gridSize = gridSize
 		self.isoLevel = isoLevel
 		self.f = f
-        try recalculateMesh()
+		try recalculateMesh()
 	}
 
 	var vertices: [Vertex] = []
@@ -136,9 +137,9 @@ public class MarchingCubes: Renderable {
 		}
 	}
 
-	public func mesh(for device: any MTLDevice) -> Mesh? {
+	public func mesh(for device: any MTLDevice) throws -> Mesh? {
 		guard !vertices.isEmpty else { return nil }
-		return Mesh(
+		return try Mesh(
 			device,
 			vertices: vertices,
 			indices: indices,
