@@ -3,12 +3,16 @@ options:
   bundleIdPrefix: com.zggff
 
 packages:
+  Inject:
+    url: https://github.com/krzysztofzablocki/Inject.git
+    from: 1.6.0
+  InjectionNext:
+    url: https://github.com/johnno1962/InjectionNext.git
+    from: 2.0.0
   Render3DViews:
     path: ./Renderer3D
   MathParser:
     path: ./MathParser
-
-
 
 targets:
   GraphingCalculator:
@@ -16,6 +20,8 @@ targets:
     platform: [macOS, iOS]
     sources: [Sources]
     dependencies:
+      - package: Inject 
+      - package: InjectionNext 
       - package: Render3DViews
       - package: MathParser
       
@@ -25,3 +31,10 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         SWIFT_VERSION: 6.3
         GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: YES
+        "INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription[sdk=iphoneos*]": "to save generated files"
+      configs:
+        Debug:
+          OTHER_LDFLAGS: "$(inherited) -Xlinker -interposable"
+          EMIT_FRONTEND_COMMAND_LINES: "YES"
+

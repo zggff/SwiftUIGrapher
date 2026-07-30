@@ -1,3 +1,4 @@
+import Inject
 import MathParser
 import Render3DViews
 import SwiftUI
@@ -188,6 +189,8 @@ struct ResizableView<Content: View>: View {
 }
 
 struct ContentView: View {
+	@ObserveInjection var redraw
+
 	@State var formulas: [MathFormula] = [
 		MathFormula(text: "x^2 + y^2 + z^2 - 4", bounds: -10...10)
 	]
@@ -244,5 +247,6 @@ struct ContentView: View {
 		}
 		.onAppear { setScene() }
 		.padding()
+		.enableInjection()
 	}
 }
