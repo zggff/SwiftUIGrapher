@@ -194,12 +194,10 @@ struct ContentView: View {
 	@State var formulas: [MathFormula] = [
 		MathFormula(text: "x^2 + y^2 + z^2 - 4", bounds: -10...10)
 	]
-	@State var scene = Scene3D()
+	@State var scene = Scene3D(additionalRenderGroups: [.wireframe, .noLight])
 	let bounds: ClosedRange<Float> = -10...10
 
 	private func setScene() {
-		let s = bounds.upperBound - bounds.lowerBound
-		let c = bounds.lowerBound + (bounds.upperBound - bounds.lowerBound) / 2
 		scene.draw { ctx in
 			for f in formulas {
 				if f.display, let c = f.cube {
@@ -207,10 +205,10 @@ struct ContentView: View {
 				}
 			}
 			ctx.draw(
-				Primitive.Cube(
-					center: Vec3(repeating: c),
-					size: Vec3(repeating: s),
-					color: Vec4(0.6, 0.6, 1.0, 0.2))
+				BoundingRectangle(
+					min: Vec3(repeating: bounds.lowerBound),
+					max: Vec3(repeating: bounds.upperBound), color: Vec4(0.5, 0.5, 0.5, 1)),
+				in: .opaque
 			)
 		}
 	}
