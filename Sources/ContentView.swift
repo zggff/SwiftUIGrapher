@@ -2,11 +2,44 @@ import MathParser
 import Render3DViews
 import SwiftUI
 
+extension CGColor {
+	var metalColor: Vec4? {
+		guard self.numberOfComponents == 4, let colorComponents = self.components else {
+			return nil
+		}
+		return Vec4(colorComponents.map { c in Float(c) })
+	}
+}
+
+#if canImport(AppKit)
+	public typealias NativeColor = NSColor
+#elseif canImport(UiKit)
+	public typealias NativeColor = UiColor
+#endif
+
+extension Color {
+	var metalColor: Vec4? {
+		let native = NativeColor(self)
+		return Vec4(
+			Float(native.redComponent),
+			Float(native.greenComponent),
+			Float(native.blueComponent),
+			Float(native.alphaComponent),
+		)
+	}
+}
+
 @Observable
 @MainActor
 class MathFormula: Identifiable {
 	public var cube: MarchingCubes? = nil
-	public var color: Vec4
+	public var color: Color {
+		didSet {
+			if let cube, let color = color.metalColor {
+				cube.color = color
+			}
+		}
+	}
 	public var bounds: ClosedRange<Float>
 	public var display = true
 
@@ -22,17 +55,24 @@ class MathFormula: Identifiable {
 	public init(text: String, bounds: ClosedRange<Float>) {
 		self.text = text
 		self.bounds = bounds
-		var randColor = Vec4.random(in: 0...1)
-		randColor.w = 1
-		color = randColor
+		color = Color(
+			red: Double.random(in: 0...1), green: Double.random(in: 0...1),
+			blue: Double.random(in: 0...1),
+		)
 		parse()
 	}
 
 	public func parse() {
 		parseTask?.cancel()
+		guard let color = color.metalColor else { return }
+		guard !text.isEmpty else {
+			cube = nil
+			self.revision += 1
+			self.errorMessage = nil
+			return
+		}
 
 		let textToParse = text
-		let color = self.color
 		let bounds = self.bounds
 
 		parseTask = Task.detached(priority: .userInitiated) {
@@ -78,35 +118,79 @@ class MathFormula: Identifiable {
 
 struct FormulaInput: View {
 	@Bindable var formula: MathFormula
+	var onNeedsRender: () -> Void
 	var onDelete: () -> Void
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 4) {
-			HStack {
+		HStack {
+			VStack(alignment: .center, spacing: 12) {
 				Toggle("", isOn: $formula.display)
-				TextField("Enter formula...", text: $formula.text)
-					.textFieldStyle(.roundedBorder)
-					.font(.title2)
-				Button(
-					role: .destructive, action: onDelete, label: { Text("Delete").font(.title2) })
+					.onChange(of: formula.display, onNeedsRender)
+					.toggleStyle(.checkbox)
+					.frame(width: 25, height: 25)
+					.labelsHidden()
+				ColorPicker("", selection: $formula.color, supportsOpacity: false)
+					.labelsHidden()
+					.scaleEffect(2.5)
+					.frame(width: 25, height: 25)
+					.clipShape(Circle())
+					.contentShape(Circle())
+					.onChange(of: formula.color, onNeedsRender)
 			}
+			VStack(alignment: .trailing) {
+				HStack {
+					if let error = formula.errorMessage {
+						Text(error)
+					}
+					Button(
+						role: .destructive, action: onDelete,
+						label: { Label("trash", systemImage: "trash") }
+					).labelStyle(.iconOnly)
+				}
 
-			if let error = formula.errorMessage {
-				Text(error)
-					.font(.title3)
-					.foregroundColor(.red)
-			} else {
-				Text("Valid surface")
-					.font(.title3)
-					.foregroundColor(.secondary)
+				TextField("Enter formula...", text: $formula.text)
+					.textFieldStyle(.plain)
+					.padding(4)
+					.font(.title2)
+					.overlay(
+						RoundedRectangle(cornerRadius: 8)
+							.stroke(
+								formula.errorMessage == nil ? Color.blue : Color.red,
+								lineWidth: 2))
 			}
 		}
-		.padding(.vertical, 4)
+		.onChange(of: formula.revision, { onNeedsRender() })
+		.padding(10)
+		.border(Color.blue, width: 2)
+	}
+}
+
+struct ResizableView<Content: View>: View {
+	@State var width = CGFloat(300)
+	@ViewBuilder var content: Content
+
+	var body: some View {
+		HStack(spacing: 0) {
+			content
+				.frame(width: width)
+			Rectangle()
+				.fill(Color.gray)
+				.frame(width: 10)
+				.contentShape(Rectangle())
+				.gesture(
+					DragGesture()
+						.onChanged { value in
+							width = max(200, width + value.translation.width)
+						}
+				)
+		}.padding(0)
 	}
 }
 
 struct ContentView: View {
-	@State var formulas: [MathFormula] = []
+	@State var formulas: [MathFormula] = [
+		MathFormula(text: "x^2 + y^2 + z^2 - 4", bounds: -10...10)
+	]
 	@State var scene = Scene3D()
 	let bounds: ClosedRange<Float> = -10...10
 
@@ -135,33 +219,30 @@ struct ContentView: View {
 	}
 
 	var body: some View {
-		HStack {
-			VStack {
-				Button {
-					formulas.append(MathFormula(text: "", bounds: bounds))
-				} label: {
-					Text("add").font(.title)
-				}
-				.buttonStyle(.bordered)
+		HStack(spacing: 0) {
+			ResizableView {
 				List {
 					ForEach(formulas) { formula in
 						FormulaInput(
 							formula: formula,
+							onNeedsRender: { setScene() },
 							onDelete: { deleteFormula(formula) }
 						)
 					}
+					Button {
+						formulas.append(MathFormula(text: "", bounds: bounds))
+					} label: {
+						Text("add").font(.title)
+							.frame(maxWidth: .infinity)
+					}
+					.frame(maxWidth: .infinity)
+					.buttonStyle(.bordered)
+
 				}
 			}
-			.frame(width: 300)
 			OrbitingSceneView(scene: scene, cameraState: $cameraState)
 		}
 		.onAppear { setScene() }
-		.onChange(of: formulas.map { $0.revision }) {
-			setScene()
-		}
-		.onChange(of: formulas.map { $0.display }) {
-			setScene()
-		}
 		.padding()
 	}
 }

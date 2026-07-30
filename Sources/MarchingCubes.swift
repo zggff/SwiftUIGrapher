@@ -7,7 +7,7 @@ public class MarchingCubes: InstancedRenderable {
 	public var cachable: Bool { false }
 	public var center: Vec3 = [0, 0, 0]
 	public let model: Matrix
-	public let color: Vec4
+	public var color: Vec4
 	public typealias Func = (Vec3) throws -> Float
 	public var meshId: MeshID = MeshID(rawValue: "MarchingCube.\(UUID())")
 
