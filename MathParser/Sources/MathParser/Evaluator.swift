@@ -1,7 +1,7 @@
 import Foundation
 import simd
 
-public struct FuncSignature: Hashable {
+public struct FuncSignature: Hashable, Sendable {
 	let name: String
 	let paramCount: Int
 	public init(_ name: String, _ paramCount: Int) {
@@ -11,7 +11,7 @@ public struct FuncSignature: Hashable {
 }
 
 extension String.StringInterpolation {
-	mutating func appendInterpolation(_ value: FuncSignature) {
+	public mutating func appendInterpolation(_ value: FuncSignature) {
 		var res = "\(value.name)("
 		if value.paramCount > 0 { res += "_" }
 		for _ in 1..<value.paramCount { res += ", _" }
@@ -19,18 +19,20 @@ extension String.StringInterpolation {
 	}
 }
 
-public typealias Function = ([Double]) -> Double
+public typealias Function = @Sendable ([Double]) -> Double
 
-public struct ExprEvaluator {
-	public enum EvalError: Error, Equatable {
-		case unknownFunction(String)
-		case unknownVariable(String)
+public struct ExprEvaluator: Sendable {
+	private init(funcs: [FuncSignature: Function], vars: [String: Double]) {
+		self.funcs = funcs
+		self.vars = vars
+	}
+	public init() {
+		self.init(funcs: [:], vars: [:])
 	}
 
-	public var funcs: [FuncSignature: Function] = [:]
-	public var vars: [String: Double] = [:]
+	public let funcs: [FuncSignature: Function]
+	public let vars: [String: Double]
 
-	public init() {}
 	public func withDefaultFuncs() -> Self {
 		withFuncs([
 			FuncSignature("abs", 1): { abs($0[0]) },
@@ -48,22 +50,28 @@ public struct ExprEvaluator {
 	}
 
 	public func withFuncs(_ funcs: [FuncSignature: Function]) -> Self {
-		var new = self
+		var new = self.funcs
 		for (signature, function) in funcs {
-			new.funcs[signature] = function
+			new[signature] = function
 		}
-		return new
-	}
-	public func withConsts(_ vars: [String: Double]) -> Self {
-		var new = self
-		for (name, value) in vars {
-			new.vars[name] = value
-		}
-		return new
+		return ExprEvaluator(funcs: new, vars: self.vars)
 	}
 
-	public func eval(_ expr: Expr, _ point: SIMD3<Double>) throws -> Double {
+	public func withConsts(_ vars: [String: Double]) -> Self {
+		var new = self.vars
+		for (name, value) in vars {
+			new[name] = value
+		}
+		return ExprEvaluator(funcs: self.funcs, vars: new)
+	}
+
+	public func eval(_ expr: Expr, at point: SIMD3<Double>) throws -> Double {
 		return try eval(expr, ["x": point.x, "y": point.y, "z": point.z])
+	}
+
+	public func eval(_ expr: Expr, at point: SIMD3<Float>) throws -> Float {
+		return Float(
+			try eval(expr, ["x": Double(point.x), "y": Double(point.y), "z": Double(point.z)]))
 	}
 
 	public func eval(_ expr: Expr, _ vars: [String: Double]) throws -> Double {
@@ -80,13 +88,13 @@ public struct ExprEvaluator {
 			case .value(let v): return v
 			case .variable(let name):
 				guard let v = vars[name] else {
-					throw EvalError.unknownVariable(name)
+					throw MathError.unknownVariable(name)
 				}
 				return v
 			case .function(let name, let values):
 				let signature = FuncSignature(name, values.count)
 				guard let fun = funcs[signature] else {
-					throw EvalError.unknownFunction(name)
+					throw MathError.unknownFunction(signature)
 				}
 				let values = try values.map { val in
 					return try eval(val)
@@ -137,7 +145,7 @@ public struct ExprEvaluator {
 			case .function(let name, let values):
 				let signature = FuncSignature(name, values.count)
 				guard let fun = funcs[signature] else {
-					throw EvalError.unknownFunction("\(signature)")
+					throw MathError.unknownFunction(signature)
 				}
 				let values = try values.map { val in
 					return try simplify(val)

@@ -1,11 +1,11 @@
-import SwiftUI
 import MathParser
+import SwiftUI
 
 @Observable
 @MainActor
 class MathFormula: Identifiable {
 	public var cube: MarchingCubes? = nil
-    private var evaluator: ExprEvaluator = ExprEvaluator()
+	public let evaluator: ExprEvaluator = ExprEvaluator().withDefaultFuncs().withDefaultConsts()
 	public var color: Color {
 		didSet {
 			if let cube, let color = color.metalColor {
@@ -48,11 +48,13 @@ class MathFormula: Identifiable {
 		let textToParse = text
 		let bounds = self.bounds
 
+		let handler = evaluator
 		parseTask = Task.detached(priority: .userInitiated) {
 			do {
-				let handler = ExprEvaluator()
-				let expr = try Expr(parse: textToParse)
-				let f: MarchingCubes.Func = { f in try handler.eval(expr, at: f) }
+				guard let expr = try Expr.parse(textToParse) else {
+					return
+				}
+				let f: MarchingCubes.Func = { point in try handler.eval(expr, at: point) }
 				let newCube = try MarchingCubes(color: color, bounds: bounds, f: f, )
 				try Task.checkCancellation()
 
@@ -63,19 +65,7 @@ class MathFormula: Identifiable {
 				}
 			} catch is CancellationError {
 			} catch {
-				let message: String
-				switch error {
-					case Expr.ParseError.invalidIdentifier(let s):
-						message = "invalid symbol: \(s)"
-					case Expr.ParseError.mismatchedParenthesis:
-						message = "parenthesis do not match"
-					case Expr.EvalError.unknownFunction(let s):
-						message = "unknown function: \(s)"
-					case Expr.EvalError.unknownVariable(let s):
-						message = "unknown variable: \(s)"
-					default:
-						message = "\(error)"
-				}
+				let message = "\(error)"
 
 				if !Task.isCancelled {
 					await MainActor.run {

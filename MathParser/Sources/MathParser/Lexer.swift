@@ -45,16 +45,7 @@ public final class Lexer {
 		}
 	}
 
-	public enum LexerError: LocalizedError {
-		case invalidNumber(String)
-		case invalidCharacter(Character)
-		public var errorDescription: String? {
-			switch self {
-				case .invalidNumber(let n): "failed to parse `\(n)` as float"
-				case .invalidCharacter(let c): "`\(c)` is an invalid character"
-			}
-		}
-	}
+
 
 	var current: Character? {
 		guard idx < input.count else { return nil }
@@ -103,14 +94,14 @@ public final class Lexer {
 			digits.append(c)
 			if c == "." {
 				if dotEncountered {
-					throw LexerError.invalidNumber(digits)
+					throw MathError.invalidNumber(digits)
 				}
 				dotEncountered = true
 			}
 		}
 		if digits.isEmpty { return nil }
 		guard let number = Double(digits) else {
-			throw LexerError.invalidNumber(digits)
+			throw MathError.invalidNumber(digits)
 		}
 		return .value(number)
 	}
@@ -125,7 +116,7 @@ public final class Lexer {
 			idx += 1
 		}
 		if name.isEmpty, let c = current {
-			throw LexerError.invalidCharacter(c)
+			throw MathError.invalidCharacter(c)
 		}
 
 		if let c = current, c == "(" {

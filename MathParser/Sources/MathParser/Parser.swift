@@ -16,11 +16,6 @@ extension Lexer.Token {
 }
 
 extension Expr {
-	public enum ParseError: LocalizedError {
-		case notEnoughTokens
-		case notEnoughArguments
-		case unexpectedSeparator
-	}
 
 	public static func parse(_ str: String) throws -> Expr? {
 		let lexer = Lexer(parse: str)
@@ -32,7 +27,7 @@ extension Expr {
 
 		func pop() throws -> Expr {
 			guard let last = result.popLast() else {
-				throw ParseError.notEnoughTokens
+				throw MathError.notEnoughTokens
 			}
 			return last
 		}
@@ -79,7 +74,7 @@ extension Expr {
 					functionParameterStack.append(count)
 				case .separator:
 					if functionParameterStack.isEmpty {
-						throw ParseError.unexpectedSeparator
+						throw MathError.unexpectedSeparator
 					}
 					functionParameterStack[functionParameterStack.count - 1] += 1
 					while let last = stack.last, last != .open {
@@ -110,7 +105,7 @@ extension Expr {
 						stack.removeLast()
 						let count = functionParameterStack.popLast()!
 						guard count <= result.count else {
-							throw ParseError.notEnoughArguments
+							throw MathError.notEnoughArguments
 						}
 						var values: [Expr] = []
 						for _ in 0..<count {
@@ -121,6 +116,9 @@ extension Expr {
 			}
 		}
 		while let last = stack.popLast() {
+            if last == .open {
+                throw MathError.unexpectedOpenParam
+                }
 			try moveOpFromStack(last)
 		}
 
