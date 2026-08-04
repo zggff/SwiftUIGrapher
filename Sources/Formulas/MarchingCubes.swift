@@ -137,10 +137,8 @@ public class MarchingCubes: InstancedRenderable {
 		}
 	}
 
-	public func mesh(for device: any MTLDevice) throws -> Mesh? {
-		guard !vertices.isEmpty else { return nil }
-		return try Mesh(
-			device,
+	public func getMesh() -> some MeshSource {
+		return Mesh(
 			vertices: vertices,
 			indices: indices,
 			cullMode: .none)
