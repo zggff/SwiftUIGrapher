@@ -23,6 +23,11 @@ let package = Package(
 			name: "MathParserTests",
 			dependencies: ["MathParser"]
 		),
+		.executableTarget(
+			name: "MathParserExe",
+			dependencies: ["MathParser"]
+		),
+
 	],
 	swiftLanguageModes: [.v6]
 )

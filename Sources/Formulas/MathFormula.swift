@@ -5,6 +5,7 @@ import MathParser
 @MainActor
 class MathFormula: Identifiable {
 	public var cube: MarchingCubes? = nil
+    private var evaluator: ExprEvaluator = ExprEvaluator()
 	public var color: Color {
 		didSet {
 			if let cube, let color = color.metalColor {

@@ -3,31 +3,32 @@ import Testing
 @testable import MathParser
 
 @Test func tokenise() throws {
-	let expected: [Token] = [
-		.neg, .open, .value(10), .sub, .value(2), .close, .mul, .function("abs"), .open,
-		.variable("x"), .close, .mul, .value(10), .sub, .value(1),
+	let expected: [Lexer.Token] = [
+		.negate, .open, .value(10), .subtract, .value(2), .close, .multiply, .function("abs"),
+		.open,
+		.variable("x"), .close, .multiply, .value(10), .subtract, .value(1),
 	]
 	let s = "-(10-2)abs(x)10-1"
-	let got = try s.tokenise()
+	let got = try Lexer(parse: s).tokenise()
 	#expect(got == expected)
 
 }
 
 @Test func parseFailsWithNotEnoughTokens() {
 	#expect(throws: Expr.ParseError.notEnoughTokens) {
-		try Expr(parse: "1 + + 2")
+		try Expr.parse("1 + + 2")
 	}
 }
 
 @Test func parseBasicExpressions() throws {
 	let cases: [(String, Expr)] = [
 		("1 + x", .binary(.add, .value(1), .variable("x"))),
-		("abs(x)", .function("abs", .variable("x"))),
-		("-abs(x)", .unary(.negate, .function("abs", .variable("x")))),
+		("abs(x)", .function("abs", [.variable("x")])),
+		("-abs(x)", .unary(.negate, .function("abs", [.variable("x")]))),
 	]
 
 	for (input, expected) in cases {
-		#expect(try Expr(parse: input) == expected)
+		#expect(try Expr.parse(input) == expected)
 	}
 }
 
@@ -35,7 +36,7 @@ import Testing
 	let cases: [(String, Expr)] = [
 		(
 			"-abs(x) - 2",
-			.binary(.subtract, .unary(.negate, .function("abs", .variable("x"))), .value(2))
+			.binary(.subtract, .unary(.negate, .function("abs", [.variable("x")])), .value(2))
 		),
 		("--x", .unary(.negate, .unary(.negate, .variable("x")))),
 		("-x^2", .unary(.negate, .binary(.power, .variable("x"), .value(2)))),
@@ -47,7 +48,7 @@ import Testing
 	]
 
 	for (input, expected) in cases {
-		let got = try Expr(parse: input)
+		let got = try Expr.parse(input)
 		#expect(got == expected)
 	}
 }
@@ -60,7 +61,7 @@ import Testing
 				.negate,
 				.function(
 					"abs",
-					.binary(.power, .variable("x"), .value(2))
+					[.binary(.power, .variable("x"), .value(2))]
 				)),
 			.binary(
 				.add,
@@ -77,8 +78,22 @@ import Testing
 			)
 
 		)
-	let got = try Expr(parse: "-abs(x^2) * (x + y + 2 * z)")
+	let got = try Expr.parse("-abs(x^2) * (x + y + 2 * z)")
 	#expect(
 		got == expected
 	)
+}
+
+@Test func simplification() async throws {
+	let cases: [(String, Expr)] = [
+		("-abs(x^2 + y^2) * 0 + 10 / 4 * 8 - 1^2 + x / x", .value(20))
+	]
+	for (input, expected) in cases {
+		let expr = try Expr.parse(input)!
+		let got = try ExprEvaluator().withDefaultFuncs().withDefaultConsts().simplify(expr)
+		#expect(
+			got == expected
+		)
+
+	}
 }
