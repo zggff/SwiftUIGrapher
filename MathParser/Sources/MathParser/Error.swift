@@ -10,6 +10,7 @@ enum MathError: LocalizedError {
 	case notEnoughArguments
 	case unexpectedSeparator
 	case unexpectedOpenParam
+	case empty
 
 	public var errorDescription: String? {
 		switch self {
@@ -18,8 +19,9 @@ enum MathError: LocalizedError {
 			case .invalidNumber(let number): "failed to parse `\(number)` as float"
 			case .invalidCharacter(let c): "`\(c)` is an invalid character"
 			case .notEnoughTokens, .notEnoughArguments: "too few tokens"
-            case .unexpectedSeparator: "separator encountered outside of function"
-            case .unexpectedOpenParam: "found an unclosed parenthesis"
+			case .unexpectedSeparator: "separator encountered outside of function"
+			case .unexpectedOpenParam: "found an unclosed parenthesis"
+			case .empty: "empty input"
 		}
 	}
 

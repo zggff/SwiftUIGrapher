@@ -9,6 +9,7 @@ class MathFormula: Identifiable {
 		case error(String)
 		case value(Double)
 		case mesh(MarchingCubes)
+		case assignment(Expr)
 
 		var isError: Bool {
 			if case .error = self { return true }
@@ -39,6 +40,11 @@ class MathFormula: Identifiable {
 		didSet { parse() }
 	}
 
+	private func setState(_ newState: State = .none) {
+		self.state = newState
+		self.revision += 1
+	}
+
 	public private(set) var revision: Int = 0
 	private var parseTask: Task<Void, Never>?
 
@@ -52,25 +58,13 @@ class MathFormula: Identifiable {
 		parse()
 	}
 
-	public func parse() {
-		parseTask?.cancel()
+	private func createCube(expr: Expr) {
 		guard let color = color.metalColor else { return }
-		guard !text.isEmpty else {
-			state = .none
-			self.revision += 1
-			return
-		}
-
-		let textToParse = text
+		let evaluator = self.evaluator
 		let bounds = self.bounds
-
-		let handler = evaluator
 		parseTask = Task.detached(priority: .userInitiated) {
 			do {
-				guard let expr = try Expr.parse(textToParse) else {
-					return
-				}
-				let simplified = try handler.simplify(expr)
+				let simplified = try evaluator.simplify(expr)
 				if case .value(let val) = simplified {
 					await MainActor.run {
 						self.state = .value(val)
@@ -79,23 +73,65 @@ class MathFormula: Identifiable {
 					return
 				}
 
-				let f: MarchingCubes.Func = { point in try handler.eval(expr, at: point) }
+				if case .value(let val) = simplified {
+					await MainActor.run {
+						self.state = .value(val)
+						self.setState()
+					}
+					return
+				}
+
+				let f: MarchingCubes.Func = { point in try evaluator.eval(expr, at: point) }
 				let newCube = try MarchingCubes(color: color, bounds: bounds, f: f, )
 				try Task.checkCancellation()
 
 				await MainActor.run {
-					self.state = .mesh(newCube)
-					self.revision += 1
+					self.setState(.mesh(newCube))
 				}
 			} catch is CancellationError {
 			} catch {
 				if !Task.isCancelled {
 					await MainActor.run {
-						self.state = .error("\(error)")
-						self.revision += 1
+						self.setState(.error("\(error)"))
 					}
 				}
 			}
+		}
+	}
+
+	public func handleStatement(text: String) throws {
+		return try createCube(expr: Expr.parse(text))
+	}
+
+	public func handleAssignment() throws {
+		let parts = try text.split(separator: "=").map(String.init).map(Expr.parse)
+		guard parts.count == 2 else {
+			return setState(.error("assignment must have two parts"))
+		}
+		if case .value(let x) = parts[0], case .value(let y) = parts[1], x != y {
+			return setState(.error("left is not equal to right"))
+		}
+		if parts[0] == parts[1] {
+			return setState(.error("parts cannot be equal"))
+		}
+
+		return createCube(expr: .binary(.subtract, parts[0], parts[1]))
+	}
+
+	public func parse() {
+		parseTask?.cancel()
+
+		guard !text.isEmpty else {
+			return setState()
+		}
+		do {
+			if text.contains("=") {
+				try handleAssignment()
+			} else {
+				try handleStatement(text: text)
+			}
+		} catch {
+			return setState(.error(error.localizedDescription))
 		}
 	}
 }

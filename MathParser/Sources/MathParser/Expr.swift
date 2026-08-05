@@ -1,13 +1,13 @@
 import Foundation
 
-public indirect enum Expr: Equatable {
+public indirect enum Expr: Equatable, Sendable {
 	case binary(BinaryOp, Expr, Expr)
 	case unary(UnaryOp, Expr)
 	case variable(String)
 	case value(Double)
 	case function(String, [Expr])
 
-	public enum BinaryOp: Equatable {
+	public enum BinaryOp: Equatable, Sendable {
 		case add
 		case subtract
 		case multiply
@@ -31,7 +31,7 @@ public indirect enum Expr: Equatable {
 		}
 	}
 
-	public enum UnaryOp: Equatable {
+	public enum UnaryOp: Equatable, Sendable {
 		case negate
 		func eval(_ a: Double) -> Double {
 			return switch self {

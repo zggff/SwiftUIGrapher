@@ -17,7 +17,7 @@ extension Lexer.Token {
 
 extension Expr {
 
-	public static func parse(_ str: String) throws -> Expr? {
+	public static func parse(_ str: String) throws -> Expr {
 		let lexer = Lexer(parse: str)
 
 		var result: [Expr] = []
@@ -122,6 +122,7 @@ extension Expr {
 			try moveOpFromStack(last)
 		}
 
-		return result.first
+        if let first = result.first {return first}
+        throw MathError.empty
 	}
 }

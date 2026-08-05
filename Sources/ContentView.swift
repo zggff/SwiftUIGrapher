@@ -34,7 +34,7 @@ struct ContentView: View {
 	@ObserveInjection var redraw
 
 	@State var formulas: [MathFormula] = [
-		MathFormula(text: "x^2 + y^2 + z^2 - 4", bounds: -10...10)
+		MathFormula(text: "x^2 + y^2 + z^2 = 4", bounds: -10...10)
 	]
     var mathEvaluator: ExprEvaluator = ExprEvaluator().withDefaultFuncs().withDefaultConsts()
 
