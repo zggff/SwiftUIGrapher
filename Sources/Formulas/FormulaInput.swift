@@ -1,6 +1,9 @@
+import Inject
 import SwiftUI
 
 struct FormulaInput: View {
+	@ObserveInjection var inject
+
 	@Bindable var formula: MathFormula
 	var onNeedsRender: () -> Void
 	var onDelete: () -> Void
@@ -21,17 +24,11 @@ struct FormulaInput: View {
 					.contentShape(Circle())
 					.onChange(of: formula.color, onNeedsRender)
 			}
-			VStack(alignment: .trailing) {
-				HStack {
-					if let error = formula.errorMessage {
-						Text(error)
-					}
-					Button(
-						role: .destructive, action: onDelete,
-						label: { Label("trash", systemImage: "trash") }
-					).labelStyle(.iconOnly)
-				}
 
+			VStack {
+				if case .error(let msg) = formula.state {
+					Text(msg)
+				}
 				TextField("Enter formula...", text: $formula.text)
 					.textFieldStyle(.plain)
 					.padding(4)
@@ -39,12 +36,24 @@ struct FormulaInput: View {
 					.overlay(
 						RoundedRectangle(cornerRadius: 8)
 							.stroke(
-								formula.errorMessage == nil ? Color.blue : Color.red,
+								formula.state.isError ? Color.red : Color.blue,
 								lineWidth: 2))
+			}
+			VStack {
+				Button(
+					role: .destructive, action: onDelete,
+					label: { Label("trash", systemImage: "trash") }
+				).labelStyle(.iconOnly)
+				if case .value(let val) = formula.state {
+					Text(String(format: "= %.2f", val))
+				} else {
+					Spacer()
+				}
 			}
 		}
 		.onChange(of: formula.revision, { onNeedsRender() })
 		.padding(10)
 		.border(Color.blue, width: 2)
+		.enableInjection()
 	}
 }
